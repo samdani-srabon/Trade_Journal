@@ -1,0 +1,139 @@
+import dash
+from dash import dcc
+from dash import html
+import pandas as pd
+
+# Read the data from the CSV file
+data = pd.read_csv('data.csv')
+
+# Convert the 'Close Time' column to a datetime-like type
+data['Close Time'] = pd.to_datetime(data['Close Time'])
+
+# Create a Dash app
+app = dash.Dash(__name__)
+
+# Define the layout of the app
+app.layout = html.Div([
+    # Add a dropdown for filtering the data
+    dcc.Dropdown(
+        id='item-dropdown',
+        options=[{'label': i, 'value': i} for i in data['Item'].unique()],
+        value=data['Item'].unique()[0]
+    ),
+    # Add a text output to display the winning percentage
+    html.P(id='winning-percentage', style={'color': 'red'}),
+    # Add a graph to display the cumulative profit
+    dcc.Graph(id='cumulative-profit-graph'),
+    # Add text outputs to display the average winning and losing trade values
+    html.P(id='average-winning-trade', style={'color': 'green'}),
+    html.P(id='average-losing-trade', style={'color': 'orange'}),
+    # Add a text output to display the net profit or loss and total number of trades
+    html.P(id='net-profit-loss'),
+    # Add text outputs to display the total number of winning and losing trades
+    html.P(id='total-winning-trades'),
+    html.P(id='total-losing-trades'),
+    # Add text outputs to display the most win traded day and most loss traded day with profit or loss and total number of trades taken on that day
+    html.P(id='most-win-traded-day'),
+    html.P(id='most-loss-traded-day'),
+    # Add a table to display the profit and loss calendar
+    html.Table(id='profit-loss-calendar')
+], style={'backgroundColor': '#F0F8FF'})
+
+# Define a callback to update the dashboard when the dropdown value changes
+@app.callback(
+    [dash.dependencies.Output('winning-percentage', 'children'),
+     dash.dependencies.Output('cumulative-profit-graph', 'figure'),
+     dash.dependencies.Output('average-winning-trade', 'children'),
+     dash.dependencies.Output('average-losing-trade', 'children'),
+     dash.dependencies.Output('net-profit-loss', 'children'),
+     dash.dependencies.Output('total-winning-trades', 'children'),
+     dash.dependencies.Output('total-losing-trades', 'children'),
+     dash.dependencies.Output('most-win-traded-day', 'children'),
+     dash.dependencies.Output('most-loss-traded-day', 'children'),
+     dash.dependencies.Output('profit-loss-calendar', 'children')],
+    [dash.dependencies.Input('item-dropdown', 'value')])
+def update_dashboard(item):
+    # Filter the data based on the selected item
+    filtered_data = data[data['Item'] == item]
+    
+    # Check if the 'Close Time' column contains datetime-like values
+    if pd.api.types.is_datetime64_any_dtype(filtered_data['Close Time']):
+        # Group the filtered data by date and calculate the sum of profit for each date
+        profit_by_date = filtered_data.groupby(filtered_data['Close Time'].dt.date)['Profit'].sum()
+        
+        # Find the dates with the highest and lowest profit
+        most_win_traded_day = profit_by_date.idxmax()
+        most_loss_traded_day = profit_by_date.idxmin()
+        
+        # Calculate the profit or loss and total number of trades taken on the most win traded day
+        most_win_traded_day_profit = filtered_data[filtered_data['Close Time'].dt.date == most_win_traded_day]['Profit'].sum()
+        most_win_traded_day_trades = filtered_data[filtered_data['Close Time'].dt.date == most_win_traded_day]['Profit'].count()
+        
+        # Calculate the profit or loss and total number of trades taken on the most loss traded day
+        most_loss_traded_day_profit = filtered_data[filtered_data['Close Time'].dt.date == most_loss_traded_day]['Profit'].sum()
+        most_loss_traded_day_trades = filtered_data[filtered_data['Close Time'].dt.date == most_loss_traded_day]['Profit'].count()
+        
+        # Format the most win traded day and most loss traded day with profit or loss and total number of trades taken on that day as text
+        most_win_text = f'Most Win Traded Day: {most_win_traded_day}, Profit: {most_win_traded_day_profit:.2f}, Trades: {most_win_traded_day_trades}'
+        most_loss_text = f'Most Loss Traded Day: {most_loss_traded_day}, Loss: {most_loss_traded_day_profit:.2f}, Trades: {most_loss_traded_day_trades}'
+    else:
+        most_win_text = 'N/A'
+        most_loss_text = 'N/A'
+    
+    # Group the filtered data by date and calculate the sum of profit for each date
+    profit_by_date = filtered_data.groupby(filtered_data['Close Time'].dt.date)['Profit'].sum()
+    
+    # Generate an HTML table with the profit and loss data
+    table_rows = [html.Tr([html.Th('Date'), html.Th('Profit/Loss'), html.Th('Trades')])]
+    for date, profit in profit_by_date.items():
+        date_str = date.strftime('%Y-%m-%d')
+        trades = filtered_data[filtered_data['Close Time'].dt.date == date]['Profit'].count()
+        row_style = {'backgroundColor': 'green' if profit > 0 else 'red'}
+        table_rows.append(html.Tr([html.Td(date_str), html.Td(f'{profit:.2f}'), html.Td(trades)], style=row_style))
+    profit_loss_calendar = html.Table(table_rows)
+    
+    # Calculate the winning percentage of trades
+    total_trades = len(filtered_data)
+    winning_trades = len(filtered_data[filtered_data['Profit'] > 0])
+    losing_trades = len(filtered_data[filtered_data['Profit'] < 0])
+    winning_percentage = (winning_trades / total_trades) * 100
+    
+    # Format the winning percentage as text
+    winning_text = f'Winning Percentage: {winning_percentage:.2f}%'
+    
+    # Calculate the cumulative profit over time
+    cumulative_profit = filtered_data['Profit'].cumsum()
+    
+    # Create a line chart of cumulative profit over time
+    figure2 = {
+        'data': [
+            {'x': filtered_data.index, 'y': cumulative_profit, 'type': 'line', 'name': item, 'line': {'color': 'blue'}}
+        ],
+        'layout': {
+            'title': f'Cumulative Profit of {item} Trades'
+        }
+    }
+    
+    # Calculate the average winning and losing trade values
+    average_winning_trade = filtered_data[filtered_data['Profit'] > 0]['Profit'].mean()
+    average_losing_trade = filtered_data[filtered_data['Profit'] < 0]['Profit'].mean()
+    
+    # Format the average winning and losing trade values as text
+    average_winning_text = f'Average Winning Trade: {average_winning_trade:.2f}'
+    average_losing_text = f'Average Losing Trade: {average_losing_trade:.2f}'
+    
+    # Calculate the net profit or loss and total number of trades
+    net_profit_loss = filtered_data['Profit'].sum()
+    
+    # Format the net profit or loss and total number of trades as text
+    net_text = f'Net Profit/Loss: {net_profit_loss:.2f}, Total Trades: {total_trades}'
+    
+    # Format the total number of winning and losing trades as text
+    total_winning_text = f'Total Winning Trades: {winning_trades}'
+    total_losing_text = f'Total Losing Trades: {losing_trades}'
+    
+    return winning_text, figure2, average_winning_text, average_losing_text, net_text, total_winning_text, total_losing_text, most_win_text, most_loss_text, profit_loss_calendar
+
+# Run the app
+if __name__ == '__main__':
+    app.run_server(debug=True)

@@ -1,0 +1,82 @@
+import dash
+from dash import dcc
+from dash import html
+import pandas as pd
+
+# Read the data from the CSV file
+data = pd.read_csv('data.csv')
+
+# Create a Dash app
+app = dash.Dash(__name__)
+
+# Define the layout of the app
+app.layout = html.Div([
+    # Add a dropdown for filtering the data
+    dcc.Dropdown(
+        id='item-dropdown',
+        options=[{'label': i, 'value': i} for i in data['Item'].unique()],
+        value=data['Item'].unique()[0]
+    ),
+    # Add a text output to display the winning percentage
+    html.P(id='winning-percentage'),
+    # Add a graph to display the cumulative profit
+    dcc.Graph(id='cumulative-profit-graph'),
+    # Add text outputs to display the average winning and losing trade values
+    html.P(id='average-winning-trade'),
+    html.P(id='average-losing-trade'),
+    # Add a text output to display the net profit or loss and total number of trades
+    html.P(id='net-profit-loss')
+])
+
+# Define a callback to update the dashboard when the dropdown value changes
+@app.callback(
+    [dash.dependencies.Output('winning-percentage', 'children'),
+     dash.dependencies.Output('cumulative-profit-graph', 'figure'),
+     dash.dependencies.Output('average-winning-trade', 'children'),
+     dash.dependencies.Output('average-losing-trade', 'children'),
+     dash.dependencies.Output('net-profit-loss', 'children')],
+    [dash.dependencies.Input('item-dropdown', 'value')])
+def update_dashboard(item):
+    # Filter the data based on the selected item
+    filtered_data = data[data['Item'] == item]
+    
+    # Calculate the winning percentage of trades
+    total_trades = len(filtered_data)
+    winning_trades = len(filtered_data[filtered_data['Profit'] > 0])
+    winning_percentage = (winning_trades / total_trades) * 100
+    
+    # Format the winning percentage as text
+    winning_text = f'Winning Percentage: {winning_percentage:.2f}%'
+    
+    # Calculate the cumulative profit over time
+    cumulative_profit = filtered_data['Profit'].cumsum()
+    
+    # Create a line chart of cumulative profit over time
+    figure2 = {
+        'data': [
+            {'x': filtered_data['Close Time'], 'y': cumulative_profit, 'type': 'line', 'name': item}
+        ],
+        'layout': {
+            'title': f'Cumulative Profit of {item} Trades'
+        }
+    }
+    
+    # Calculate the average winning and losing trade values
+    average_winning_trade = filtered_data[filtered_data['Profit'] > 0]['Profit'].mean()
+    average_losing_trade = filtered_data[filtered_data['Profit'] < 0]['Profit'].mean()
+    
+    # Format the average winning and losing trade values as text
+    average_winning_text = f'Average Winning Trade: {average_winning_trade:.2f}'
+    average_losing_text = f'Average Losing Trade: {average_losing_trade:.2f}'
+    
+    # Calculate the net profit or loss and total number of trades
+    net_profit_loss = filtered_data['Profit'].sum()
+    
+    # Format the net profit or loss and total number of trades as text
+    net_text = f'Net Profit/Loss: {net_profit_loss:.2f}, Total Trades: {total_trades}'
+    
+    return winning_text, figure2, average_winning_text, average_losing_text, net_text
+
+# Run the app
+if __name__ == '__main__':
+    app.run_server(debug=True)
