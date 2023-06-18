@@ -21,12 +21,12 @@ app.layout = html.Div([
         value=data['Item'].unique()[0]
     ),
     # Add a text output to display the winning percentage
-    html.P(id='winning-percentage', style={'color': 'red'}),
+    html.P(id='winning-percentage', style={'color': 'green'}),
     # Add a graph to display the cumulative profit
     dcc.Graph(id='cumulative-profit-graph'),
     # Add text outputs to display the average winning and losing trade values
     html.P(id='average-winning-trade', style={'color': 'green'}),
-    html.P(id='average-losing-trade', style={'color': 'orange'}),
+    html.P(id='average-losing-trade', style={'color': 'red'}),
     # Add a text output to display the net profit or loss and total number of trades
     html.P(id='net-profit-loss'),
     # Add text outputs to display the total number of winning and losing trades
@@ -37,7 +37,7 @@ app.layout = html.Div([
     html.P(id='most-loss-traded-day'),
     # Add a table to display the profit and loss calendar
     html.Table(id='profit-loss-calendar')
-], style={'backgroundColor': '#F0F8FF'})
+], style={'backgroundColor': '#F0F8FF', 'border': '3px solid blue'})
 
 # Define a callback to update the dashboard when the dropdown value changes
 @app.callback(
