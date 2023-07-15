@@ -10,7 +10,7 @@ data = pd.read_csv('data.csv')
 data['Close Time'] = pd.to_datetime(data['Close Time'])
 
 # Create a Dash app
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, title='My Trading Journal')
 
 # Define the layout of the app
 app.layout = html.Div([
